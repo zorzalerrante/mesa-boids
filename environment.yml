@@ -1,0 +1,14 @@
+name: mesa-boids
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - mkl
+  - numpy
+  - pip
+  - pyopengl
+  - python=3.8
+  - pyglet
+  - mesa
+  - trimesh
+  - pillow
