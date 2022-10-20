@@ -1,9 +1,11 @@
 import os
-from collections import defaultdict
+from collections import defaultdict, deque
 from ctypes.wintypes import SIZE
+from itertools import chain
 from multiprocessing.spawn import prepare
 
 import numpy as np
+import pyglet
 import pyglet.graphics as pygr
 import trimesh
 from OpenGL.GL import *
@@ -53,6 +55,32 @@ void main()
 }
 """
 
+point_shader = """
+#version 330
+
+uniform mat4 view;
+uniform mat4 projection;
+
+in vec3 position;
+
+void main()
+{
+    gl_PointSize = 5.0;
+    gl_Position = projection * view * vec4(position, 1.0);
+}
+"""
+
+point_fragment_shader = """
+#version 330
+
+out vec4 outColor;
+
+void main()
+{
+    outColor = vec4(1.0, 1.0, 1.0, 1.0);
+}
+"""
+
 
 class PajaritoRender:
     def __init__(self, model_path, *args, **kwargs):
@@ -61,7 +89,13 @@ class PajaritoRender:
             shaders.compileShader(fragment_shader, GL_FRAGMENT_SHADER),
         )
 
+        self.point_pipeline = shaders.compileProgram(
+            shaders.compileShader(point_shader, GL_VERTEX_SHADER),
+            shaders.compileShader(point_fragment_shader, GL_FRAGMENT_SHADER),
+        )
+
         self.bird = trimesh.load(model_path)
+        self.bird_trail_positions = deque()
 
         self.gpu_birds = {}
         for mesh_name, mesh in self.bird.geometry.items():
@@ -95,12 +129,12 @@ class PajaritoRender:
         # Setting uniforms that will NOT change on each iteration
         glUseProgram(self.pipeline)
 
-        projection = tr.perspective(60, float(1024) / float(768), 1, 1000)
+        self.projection = tr.perspective(60, float(1024) / float(768), 1, 1000)
         glUniformMatrix4fv(
             glGetUniformLocation(self.pipeline, "projection"),
             1,
             GL_TRUE,
-            projection,
+            self.projection,
         )
 
         glUniformMatrix4fv(
@@ -121,8 +155,9 @@ class PajaritoRender:
 
         self.focus_on_bird = False
 
-    def draw(self, world: BoidFlockers, bird_camera: bool=False):
+    def draw(self, world: BoidFlockers, bird_camera: bool = False):
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+        glEnable(GL_DEPTH_TEST)
 
         # esto activa la transparencia de la textura.
         glEnable(GL_BLEND)
@@ -167,8 +202,6 @@ class PajaritoRender:
             glGetUniformLocation(self.pipeline, "view"), 1, GL_TRUE, view
         )
 
-        
-
         for boid in world.space._agent_to_index.keys():
             if boid is None:
                 continue
@@ -196,3 +229,41 @@ class PajaritoRender:
                 glDrawElements(GL_TRIANGLES, shape["size"], GL_UNSIGNED_INT, None)
                 glBindVertexArray(0)
                 # shape.draw(GL_TRIANGLES)
+
+        glDisable(GL_BLEND)
+
+        # estela
+        glEnable(GL_PROGRAM_POINT_SIZE)
+
+        if len(self.bird_trail_positions) > 0:
+            glUseProgram(self.point_pipeline)
+
+            glUniformMatrix4fv(
+                glGetUniformLocation(self.point_pipeline, "projection"),
+                1,
+                GL_TRUE,
+                self.projection,
+            )
+
+            glUniformMatrix4fv(
+                glGetUniformLocation(self.point_pipeline, "view"), 1, GL_TRUE, view
+            )
+
+            trail_buffer = prepare_gpu_buffer(
+                self.point_pipeline,
+                np.array(list(chain(*self.bird_trail_positions))),
+                list(range(len(self.bird_trail_positions))),
+                normals=False,
+                texture=False,
+            )
+
+            # print('trail', trail_buffer)
+
+            glBindVertexArray(trail_buffer["vao"])
+            glDrawElements(GL_POINTS, trail_buffer["size"], GL_UNSIGNED_INT, None)
+            glBindVertexArray(0)
+
+            glDeleteBuffers(1, np.uint(trail_buffer["vbo"]))
+
+        # print(tuple(chain(*bird_trail_positions)))
+        glDisable(GL_PROGRAM_POINT_SIZE)

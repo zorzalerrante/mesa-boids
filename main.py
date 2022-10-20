@@ -1,11 +1,13 @@
-import pyglet
+from pathlib import Path
 
+import pyglet
+from OpenGL.GL import (GL_DEPTH_TEST, GL_TRIANGLES, GL_UNSIGNED_INT,
+                       glBindVertexArray, glClearColor, glDisable,
+                       glDrawElements, glEnable, glUseProgram)
+
+from background import create_quad
 from boid_flockers.model import BoidFlockers
 from pajarito_render import PajaritoRender
-from background import create_quad
-from OpenGL.GL import glClearColor, glEnable, glDisable, GL_DEPTH_TEST, glUseProgram, glBindVertexArray, glDrawElements, GL_TRIANGLES, GL_UNSIGNED_INT
-
-from pathlib import Path
 
 program_params = {
     'paused': False,
@@ -16,17 +18,24 @@ def main():
     window = pyglet.window.Window(width=1024, height=768)
 
     
-    flock = BoidFlockers(60, width=640, height=480, speed=0.75, vision=100, separation=20, cohere=0.001, separate=0.1, match=0.001)
+    flock = BoidFlockers(2, width=640, height=480, speed=0.75, vision=100, separation=20, cohere=0.001, separate=0.1, match=0.001)
 
     bird_path = Path('assets') / 'zorzal2.obj'
     renderer = PajaritoRender(bird_path)
 
 
     bg_shader, bg_quad = create_quad()
-
+    
     def tick(time):
         if not program_params['paused']:
             flock.step()
+
+            boid = next(iter(flock.space._agent_to_index.keys()))
+            bird_position = [boid.pos[0], boid.pos[1], 0]
+            renderer.bird_trail_positions.append(bird_position)
+
+            if len(renderer.bird_trail_positions) > 500:
+                renderer.bird_trail_positions.popleft()
 
 
     @window.event
