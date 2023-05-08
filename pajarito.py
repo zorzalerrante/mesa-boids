@@ -16,6 +16,7 @@ import grafica.transformations as tr
 from boid_flockers.model import BoidFlockers
 from grafica.gpu_tools import trimesh_to_gpu
 from grafica.scene_graph import SceneGraphNode, find_node
+from grafica.shape import Shape
 
 vertex_shader = """
 #version 330
@@ -56,47 +57,12 @@ void main()
 }
 """
 
-point_shader = """
-#version 330
 
-uniform mat4 view;
-uniform mat4 projection;
-
-in vec3 position;
-
-void main()
-{
-    gl_PointSize = 5.0;
-    gl_Position = projection * view * vec4(position, 1.0);
-}
-"""
-
-point_fragment_shader = """
-#version 330
-
-out vec4 outColor;
-
-void main()
-{
-    outColor = vec4(1.0, 1.0, 1.0, 1.0);
-}
-"""
-
-
-class PajaritoRender:
+class Pajarito(Shape):
     def __init__(self, model_path, *args, **kwargs):
-        self.shader_program = shaders.compileProgram(
-            shaders.compileShader(vertex_shader, GL_VERTEX_SHADER),
-            shaders.compileShader(fragment_shader, GL_FRAGMENT_SHADER),
-        )
-
-        self.point_pipeline = shaders.compileProgram(
-            shaders.compileShader(point_shader, GL_VERTEX_SHADER),
-            shaders.compileShader(point_fragment_shader, GL_FRAGMENT_SHADER),
-        )
+        super().__init__(vertex_shader, fragment_shader)
 
         self.bird = trimesh.load(model_path)
-        self.bird_trail_positions = deque()
 
         self.gpu_birds = trimesh_to_gpu(self.bird, self.shader_program)
 
@@ -155,7 +121,6 @@ class PajaritoRender:
             glBindTexture(GL_TEXTURE_2D, shape["texture"])
             glDrawElements(GL_TRIANGLES, shape["size"], GL_UNSIGNED_INT, None)
             glBindVertexArray(0)
-            # shape.draw(GL_TRIANGLES)
 
         glDisable(GL_BLEND)
 

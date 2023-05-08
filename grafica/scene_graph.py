@@ -5,6 +5,7 @@ from OpenGL.GL import *
 import OpenGL.GL.shaders
 import numpy as np
 import grafica.transformations as tr
+from .shape import Shape
 
 __author__ = "Daniel Calderon"
 __license__ = "MIT"
@@ -32,7 +33,7 @@ class SceneGraphNode:
 
 def find_node(node, name):
     # The name was not found in this path
-    if isinstance(node, dict):
+    if isinstance(node, Shape):
         return None
 
     # This is the requested node
@@ -81,7 +82,7 @@ def find_position(node, name, parentTransform=tr.identity()):
     return None
 
 
-def draw_scenegraph_node(node, pipeline, transformName, parentTransform=tr.identity()):
+def draw_scenegraph_node(node, parentTransform=tr.identity()):
     # assert(isinstance(node, SceneGraphNode))
 
     # Composing the transformations through this path
@@ -89,18 +90,20 @@ def draw_scenegraph_node(node, pipeline, transformName, parentTransform=tr.ident
 
     # If the child node is a leaf, it should be a GPUShape.
     # Hence, it can be drawn with drawCall
-    if len(node.childs) == 1 and isinstance(node.childs[0], dict):
+    if len(node.childs) == 1 and isinstance(node.childs[0], Shape):
         leaf = node.childs[0]
+        glUseProgram(leaf.shader_program)
+
         glUniformMatrix4fv(
-            glGetUniformLocation(pipeline.shader_program, transformName),
+            glGetUniformLocation(leaf.shader_program, leaf.transform_name),
             1,
             GL_TRUE,
             newTransform,
         )
-        pipeline.draw(leaf)
+        leaf.draw()
 
     # If the child node is not a leaf, it MUST be a SceneGraphNode,
     # so this draw function is called recursively
     else:
         for child in node.childs:
-            draw_scenegraph_node(child, pipeline, transformName, newTransform)
+            draw_scenegraph_node(child, newTransform)

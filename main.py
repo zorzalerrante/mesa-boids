@@ -18,7 +18,7 @@ import grafica.transformations as tr
 from background import create_quad
 from boid_flockers.model import BoidFlockers
 from grafica.scene_graph import SceneGraphNode, draw_scenegraph_node, find_node
-from pajarito_render import PajaritoRender
+from pajarito import Pajarito
 
 program_state = {
     "paused": False,
@@ -44,7 +44,7 @@ def main():
     )
 
     bird_path = Path("assets") / "zorzal2.obj"
-    renderer = PajaritoRender(bird_path)
+    pajarito_3d = Pajarito(bird_path)
 
     bg_shader, bg_quad = create_quad()
 
@@ -52,7 +52,7 @@ def main():
 
     for boid, name in flock.iter_agents():
         bird = SceneGraphNode(name)
-        bird.childs = [renderer.gpu_birds]
+        bird.childs = [pajarito_3d]
         graph.childs.append(bird)
 
     def tick(time):
@@ -69,7 +69,7 @@ def main():
                         # tr.translate(*(self.centroid * 20)),
                         # tr.rotationZ(np.deg2rad(-90)),
                         tr.rotationZ(angle),
-                        tr.translate(*(-renderer.centroid * 15)),
+                        tr.translate(*(-pajarito_3d.centroid * 15)),
                     ]
                 )
 
@@ -96,11 +96,11 @@ def main():
 
         glEnable(GL_DEPTH_TEST)
 
-        renderer.setup_program(
+        pajarito_3d.setup_program(
             program_state["view_matrix"], program_state["projection_matrix"]
         )
 
-        draw_scenegraph_node(graph, renderer, "transform")
+        draw_scenegraph_node(graph)
 
     def view_transform(bird_camera):
         if not bird_camera:
