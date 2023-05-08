@@ -74,3 +74,9 @@ class BoidFlockers(mesa.Model):
 
     def step(self):
         self.schedule.step()
+
+    def iter_agents(self, index=True):
+        if index:
+            yield from self.space._agent_to_index.items()
+        else:
+            yield from self.space._agent_to_index.keys()

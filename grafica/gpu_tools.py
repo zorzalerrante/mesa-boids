@@ -1,10 +1,14 @@
-from OpenGL.GL import *
 import numpy as np
+import trimesh
+from OpenGL.GL import *
 from PIL import Image
 
 SIZE_IN_BYTES = 4
 
-def prepare_gpu_buffer(pipeline, vertices, indices, normals=True, texture=True, colors=False):
+
+def prepare_gpu_buffer(
+    pipeline, vertices, indices, normals=True, texture=True, colors=False
+):
     vertices = np.array(vertices, dtype=np.float32)
     indices = np.array(indices, dtype=np.uint32)
 
@@ -39,20 +43,32 @@ def prepare_gpu_buffer(pipeline, vertices, indices, normals=True, texture=True, 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
 
     position = glGetAttribLocation(pipeline, "position")
-    glVertexAttribPointer(position, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(pos_offset))
+    glVertexAttribPointer(
+        position, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(pos_offset)
+    )
     glEnableVertexAttribArray(position)
 
     if colors:
         color = glGetAttribLocation(pipeline, "color")
         glVertexAttribPointer(
-            color, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(color_offset * SIZE_IN_BYTES)
+            color,
+            3,
+            GL_FLOAT,
+            GL_FALSE,
+            stride,
+            ctypes.c_void_p(color_offset * SIZE_IN_BYTES),
         )
-        glEnableVertexAttribArray(color)       
+        glEnableVertexAttribArray(color)
 
     if texture:
         texCoords = glGetAttribLocation(pipeline, "texCoords")
         glVertexAttribPointer(
-            texCoords, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(texture_offset * SIZE_IN_BYTES)
+            texCoords,
+            2,
+            GL_FLOAT,
+            GL_FALSE,
+            stride,
+            ctypes.c_void_p(texture_offset * SIZE_IN_BYTES),
         )
         glEnableVertexAttribArray(texCoords)
 
@@ -69,9 +85,6 @@ def prepare_gpu_buffer(pipeline, vertices, indices, normals=True, texture=True, 
         GL_ELEMENT_ARRAY_BUFFER, len(indices) * SIZE_IN_BYTES, indices, GL_STATIC_DRAW
     )
     return {"vbo": vbo, "vao": vao, "ebo": ebo, "size": size}
-
-
-
 
 
 def texture_setup(image, sWrapMode, tWrapMode, minFilterMode, maxFilterMode):
@@ -114,3 +127,34 @@ def texture_setup(image, sWrapMode, tWrapMode, minFilterMode, maxFilterMode):
     )
 
     return texture
+
+
+def trimesh_to_gpu(mesh, pipeline):
+    gpu_mesh = {}
+
+    for mesh_name, mesh in mesh.geometry.items():
+        mesh_parts = trimesh.rendering.mesh_to_vertexlist(mesh)
+        mesh_vertex_data = np.hstack(
+            [
+                np.array(mesh_parts[4][1]).reshape(-1, 3),
+                np.array(mesh_parts[5][1]).reshape(-1, 3),
+                np.array(mesh_parts[6][1]).reshape(-1, 2),
+            ]
+        ).reshape(1, -1)
+        mesh_vertex_data = np.array(np.squeeze(mesh_vertex_data))
+        # print(mesh_vertex_data.shape)
+        # print(mesh_vertex_data[0:10])
+        # mesh_indices = list(zip(mesh_parts[3][0::3], mesh_parts[3][1::3], mesh_parts[3][2::3]))
+        mesh_indices = mesh_parts[3]
+        # print(mesh_indices[0:10])
+        gpu_mesh[mesh_name] = prepare_gpu_buffer(
+            pipeline, mesh_vertex_data, mesh_indices
+        )
+        # print(mesh_name, mesh_parts[4][0], mesh_parts[5][0], mesh_parts[6][0])
+
+        gpu_mesh[mesh_name]["texture"] = texture_setup(
+            mesh.visual.material.image, GL_REPEAT, GL_REPEAT, GL_LINEAR, GL_LINEAR
+        )
+        # print(mesh_name, self.gpu_birds[mesh_name])
+
+    return gpu_mesh
