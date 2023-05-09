@@ -50,8 +50,8 @@ def main():
 
     graph = SceneGraphNode("world")
 
-    for boid, name in flock.iter_agents():
-        bird = SceneGraphNode(name)
+    for boid in flock.iter_agents():
+        bird = SceneGraphNode(boid.unique_id)
         bird.childs = [pajarito_3d]
         graph.childs.append(bird)
 
@@ -59,10 +59,10 @@ def main():
         if not program_state["paused"]:
             flock.step()
 
-            for boid, name in flock.iter_agents():
+            for boid in flock.iter_agents():
                 angle = np.arctan2(boid.velocity[1], boid.velocity[0])
 
-                node = find_node(graph, name)
+                node = find_node(graph, boid.unique_id)
                 node.transform = tr.matmul(
                     [
                         tr.translate(boid.pos[0], boid.pos[1], 0.0),
@@ -107,7 +107,7 @@ def main():
             viewPos = np.array([320, 240, 600])
             view = tr.lookAt(viewPos, np.array([320, 240, 0]), np.array([0, 1, 0]))
         else:
-            boid = next(iter(flock.iter_agents(index=False)))
+            boid = next(iter(flock.iter_agents()))
             bird_position = np.array([boid.pos[0], boid.pos[1], 0, 1])
             angle = np.arctan2(boid.velocity[1], boid.velocity[0])
 

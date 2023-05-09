@@ -7,7 +7,7 @@ dependencies:
   - numpy
   - pip
   - pyopengl
-  - python=3.8
+  - python
   - pyglet
   - mesa
   - trimesh
