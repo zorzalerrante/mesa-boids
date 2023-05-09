@@ -50,27 +50,29 @@ def prepare_gpu_buffer(
 
     if colors:
         color = glGetAttribLocation(pipeline, "color")
-        glVertexAttribPointer(
-            color,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
-            stride,
-            ctypes.c_void_p(color_offset * SIZE_IN_BYTES),
-        )
-        glEnableVertexAttribArray(color)
+        if color >= 0:
+            glVertexAttribPointer(
+                color,
+                3,
+                GL_FLOAT,
+                GL_FALSE,
+                stride,
+                ctypes.c_void_p(color_offset * SIZE_IN_BYTES),
+            )
+            glEnableVertexAttribArray(color)
 
     if texture:
         texCoords = glGetAttribLocation(pipeline, "texCoords")
-        glVertexAttribPointer(
-            texCoords,
-            2,
-            GL_FLOAT,
-            GL_FALSE,
-            stride,
-            ctypes.c_void_p(texture_offset * SIZE_IN_BYTES),
-        )
-        glEnableVertexAttribArray(texCoords)
+        if texCoords >= 0:
+            glVertexAttribPointer(
+                texCoords,
+                2,
+                GL_FLOAT,
+                GL_FALSE,
+                stride,
+                ctypes.c_void_p(texture_offset * SIZE_IN_BYTES),
+            )
+            glEnableVertexAttribArray(texCoords)
 
     # Unbinding current vao
     glBindVertexArray(0)
@@ -132,8 +134,8 @@ def texture_setup(image, sWrapMode, tWrapMode, minFilterMode, maxFilterMode):
 def trimesh_to_gpu(mesh, pipeline):
     gpu_mesh = {}
 
-    for mesh_name, mesh in mesh.geometry.items():
-        mesh_parts = trimesh.rendering.mesh_to_vertexlist(mesh)
+    for mesh_name, submesh in mesh.geometry.items():
+        mesh_parts = trimesh.rendering.mesh_to_vertexlist(submesh)
         mesh_vertex_data = np.hstack(
             [
                 np.array(mesh_parts[4][1]).reshape(-1, 3),
@@ -152,9 +154,11 @@ def trimesh_to_gpu(mesh, pipeline):
         )
         # print(mesh_name, mesh_parts[4][0], mesh_parts[5][0], mesh_parts[6][0])
 
-        gpu_mesh[mesh_name]["texture"] = texture_setup(
-            mesh.visual.material.image, GL_REPEAT, GL_REPEAT, GL_LINEAR, GL_LINEAR
-        )
+        visual = getattr(submesh, 'visual', None)
+        if visual is not None and type(visual) == trimesh.visual.texture.TextureVisuals:
+            gpu_mesh[mesh_name]["texture"] = texture_setup(
+                submesh.visual.material.image, GL_REPEAT, GL_REPEAT, GL_LINEAR, GL_LINEAR
+            )
         # print(mesh_name, self.gpu_birds[mesh_name])
 
     return gpu_mesh
