@@ -7,7 +7,7 @@ SIZE_IN_BYTES = 4
 
 
 def prepare_gpu_buffer(
-    pipeline, vertices, indices, normals=True, texture=True, colors=False
+    pipeline, vertices, indices, normals=True, texture=True, colors=False, color_alpha=False
 ):
     vertices = np.array(vertices, dtype=np.float32)
     indices = np.array(indices, dtype=np.uint32)
@@ -29,9 +29,9 @@ def prepare_gpu_buffer(
         texture_offset += 3
         color_offset += 3
     if colors:
-        vertex_len += 3
+        vertex_len += 3 + int(color_alpha)
         texture_offset += 3
-        color_offset += 3
+        color_offset += 3 + int(color_alpha)
     if texture:
         vertex_len += 2
         texture_offset += 3
@@ -53,7 +53,7 @@ def prepare_gpu_buffer(
         if color >= 0:
             glVertexAttribPointer(
                 color,
-                3,
+                3 + int(color_alpha),
                 GL_FLOAT,
                 GL_FALSE,
                 stride,
@@ -133,16 +133,28 @@ def texture_setup(image, sWrapMode, tWrapMode, minFilterMode, maxFilterMode):
 
 def trimesh_to_gpu(mesh, pipeline):
     gpu_mesh = {}
-
+    import sys
     for mesh_name, submesh in mesh.geometry.items():
         mesh_parts = trimesh.rendering.mesh_to_vertexlist(submesh)
+        print(mesh_parts[6], len(mesh_parts[6][1]))
+
+        if mesh_parts[6][0].startswith('t2f'):
+            material_size = 2
+            material_part = np.array(mesh_parts[6][1]).reshape(-1, material_size)
+        elif mesh_parts[6][0].startswith('c4B'):
+            material_size = 4
+            material_part = np.array(mesh_parts[6][1]).reshape(-1, material_size) / 255.0 
+        else:
+            raise ValueError('unsupported mesh. maybe add colors/textures?')
+        
         mesh_vertex_data = np.hstack(
             [
                 np.array(mesh_parts[4][1]).reshape(-1, 3),
                 np.array(mesh_parts[5][1]).reshape(-1, 3),
-                np.array(mesh_parts[6][1]).reshape(-1, 2),
+                material_part,
             ]
         ).reshape(1, -1)
+        
         mesh_vertex_data = np.array(np.squeeze(mesh_vertex_data))
         # print(mesh_vertex_data.shape)
         # print(mesh_vertex_data[0:10])
@@ -150,12 +162,11 @@ def trimesh_to_gpu(mesh, pipeline):
         mesh_indices = mesh_parts[3]
         # print(mesh_indices[0:10])
         gpu_mesh[mesh_name] = prepare_gpu_buffer(
-            pipeline, mesh_vertex_data, mesh_indices
+            pipeline, mesh_vertex_data, mesh_indices, texture=material_size == 2, colors=material_size == 4, color_alpha=True
         )
         # print(mesh_name, mesh_parts[4][0], mesh_parts[5][0], mesh_parts[6][0])
 
-        visual = getattr(submesh, 'visual', None)
-        if visual is not None and type(visual) == trimesh.visual.texture.TextureVisuals:
+        if submesh.visual.material.image is not None:
             gpu_mesh[mesh_name]["texture"] = texture_setup(
                 submesh.visual.material.image, GL_REPEAT, GL_REPEAT, GL_LINEAR, GL_LINEAR
             )

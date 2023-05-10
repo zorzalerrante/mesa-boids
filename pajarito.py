@@ -80,6 +80,10 @@ class Pajarito(Shape):
             ]
         )
 
+        # el centroid se usa para cálculos fuera de esta clase, por lo que necesitamos actualizarlo con la transformación
+        old_centroid = np.array([self.centroid[0], self.centroid[1], self.centroid[2], 1])
+        self.centroid = np.matmul(self.model_transform, old_centroid)[0:3]
+
     def setup_program(self, view_matrix, projection_matrix):
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
         glEnable(GL_DEPTH_TEST)
@@ -109,18 +113,13 @@ class Pajarito(Shape):
         )
 
     def draw(self, *params, **kwargs):
-        # glUniformMatrix4fv(
-        #     glGetUniformLocation(self.shader_program, "transform"),
-        #     1,
-        #     GL_TRUE,
-        #     transform,
-        # )
-
         for shape in self.gpu_birds.values():
             glBindVertexArray(shape["vao"])
-            glBindTexture(GL_TEXTURE_2D, shape["texture"])
+            if 'texture' in shape:
+                glBindTexture(GL_TEXTURE_2D, shape["texture"])
             glDrawElements(GL_TRIANGLES, shape["size"], GL_UNSIGNED_INT, None)
             glBindVertexArray(0)
 
         glDisable(GL_BLEND)
+        glBindTexture(GL_TEXTURE_2D, 0)
 

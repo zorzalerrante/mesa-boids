@@ -66,10 +66,8 @@ def main():
                 node.transform = tr.matmul(
                     [
                         tr.translate(boid.pos[0], boid.pos[1], 0.0),
-                        # tr.translate(*(self.centroid * 20)),
-                        # tr.rotationZ(np.deg2rad(-90)),
                         tr.rotationZ(angle),
-                        tr.translate(*(-pajarito_3d.centroid * 15)),
+                        tr.translate(*(-pajarito_3d.centroid)),
                     ]
                 )
 
